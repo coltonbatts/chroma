@@ -2,6 +2,33 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { Color } from './types'
 import { createColor } from './colorUtils'
+import { DitherSettings, DEFAULT_DITHER_SETTINGS } from './dithering/types'
+
+// View mode for the application
+export type ViewMode = 'palette' | 'dmc' | 'dither'
+
+// Dither settings store (separate, persisted)
+export interface DitherStoreState {
+  viewMode: ViewMode
+  ditherSettings: DitherSettings
+  setViewMode: (mode: ViewMode) => void
+  setDitherSettings: (settings: DitherSettings) => void
+}
+
+export const useDitherStore = create<DitherStoreState>()(
+  persist(
+    (set) => ({
+      viewMode: 'palette' as ViewMode,
+      ditherSettings: DEFAULT_DITHER_SETTINGS,
+      setViewMode: (mode) => set({ viewMode: mode }),
+      setDitherSettings: (settings) => set({ ditherSettings: settings }),
+    }),
+    {
+      name: 'chroma-dither',
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+)
 
 // Define the store state and actions
 export interface PaletteState {
