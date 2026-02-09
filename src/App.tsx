@@ -1,17 +1,21 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ColorSwatch } from './components/ColorSwatch'
 import { MatchPanel } from './components/MatchPanel'
 import { PaletteColor } from './lib/store'
-import { formatRgb, convertRgbToHsl, convertRgbToLab } from 'culori'
+import { convertRgbToHsl, convertRgbToLab } from 'culori'
+import { invoke } from '@tauri-apps/api/core'
+
+// Window control handlers via Rust backend
+const handleClose = () => invoke('close_window')
+const handleMinimize = () => invoke('minimize_window')
+const handleMaximize = () => invoke('maximize_window')
 
 function App() {
   const [isClient, setIsClient] = useState(false)
   const [colors, setColors] = useState<PaletteColor[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [imagePath, setImagePath] = useState<string | null>(null)
-  const [pickingColor, setPickingColor] = useState(false)
   const [pickerColor, setPickerColor] = useState({ r: 128, g: 128, b: 128 })
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const [pickerMode, setPickerMode] = useState<'picker' | 'dropper'>('picker')
   const [showMatchPanel, setShowMatchPanel] = useState(false)
   
@@ -113,9 +117,6 @@ function App() {
   }, [])
   
   const selectedColor = colors.find(c => c.id === selectedId)
-  const rgbString = selectedColor 
-    ? `${Math.round(selectedColor.r)}, ${Math.round(selectedColor.g)}, ${Math.round(selectedColor.b)}`
-    : null
   const hslString = selectedColor 
     ? (() => {
         const hsl = convertRgbToHsl({ r: selectedColor.r / 255, g: selectedColor.g / 255, b: selectedColor.b / 255 })
@@ -141,17 +142,70 @@ function App() {
   }
   
   return (
-    <div className="h-screen bg-black text-gray-200 flex flex-col">
-      {/* Header */}
-      <header className="h-12 border-b border-gray-800 flex items-center px-4 justify-between">
-        <h1 className="text-lg font-bold tracking-tight">CHROMA</h1>
-        <div className="text-xs text-gray-500">
-          v0.1.0 • offline
+    <div 
+      className="h-screen bg-black text-gray-200 flex" 
+      style={{ WebkitUserSelect: 'none' }}
+    >
+      {/* Left Sidebar - Controls + Wordmark + Nav */}
+      <aside 
+        className="w-16 flex flex-col items-center py-3 border-r border-gray-800"
+        data-tauri-drag-region
+      >
+        {/* Traffic Lights */}
+        <div className="flex flex-col gap-2 mb-4">
+          <button 
+            onClick={handleClose}
+            className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
+            title="Close"
+          />
+          <button 
+            onClick={handleMinimize}
+            className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors"
+            title="Minimize"
+          />
+          <button 
+            onClick={handleMaximize}
+            className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors"
+            title="Maximize"
+          />
         </div>
-      </header>
+        
+        {/* Chroma Wordmark */}
+        <div className="mb-4" data-tauri-drag-region>
+          <h1 
+            className="text-xs font-bold tracking-widest text-gray-200 writing-vertical-rl rotate-180 select-none"
+            data-tauri-drag-region
+          >
+            CHROMA
+          </h1>
+        </div>
+        
+        {/* Navigation buttons */}
+        <nav className="flex-1 flex flex-col items-center gap-4">
+          <button 
+            onClick={() => setShowMatchPanel(false)}
+            className={`p-2 text-xs ${!showMatchPanel ? 'text-gray-200' : 'text-gray-600 hover:text-gray-400'}`}
+            title="Palette"
+          >
+            ◎
+          </button>
+          <button 
+            onClick={() => setShowMatchPanel(true)}
+            className={`p-2 text-xs ${showMatchPanel ? 'text-gray-200' : 'text-gray-600 hover:text-gray-400'}`}
+            title="DMC Match"
+          >
+            ◈
+          </button>
+        </nav>
+        
+        {/* Version */}
+        <div className="text-[8px] text-gray-700 font-mono writing-vertical-rl rotate-180">
+          v0.0.1
+        </div>
+      </aside>
       
       {/* Main workspace */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex flex-col">
         {/* Left: Palette bar */}
         <aside className="w-64 border-r border-gray-800 flex flex-col">
           <div className="p-3 border-b border-gray-800 space-y-2">
@@ -262,114 +316,57 @@ function App() {
         {/* Right: Info panel */}
         <aside className="w-56 border-l border-gray-800 flex flex-col">
           {showMatchPanel ? (
-            <MatchPanel 
+            <MatchPanel
+              isOpen={showMatchPanel}
               selectedColor={selectedColor ? { r: selectedColor.r, g: selectedColor.g, b: selectedColor.b } : null}
               onAddColor={addColor}
-              isOpen={showMatchPanel}
             />
           ) : (
-            <>
-              {/* Color picker */}
-              <div className="p-3 border-b border-gray-800">
-                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Color Picker</div>
-                <div 
-                  className="w-full h-16 rounded border border-gray-700 mb-2 cursor-crosshair"
-                  style={{ 
-                    background: `linear-gradient(to right, hsl(0, 0%, 50%), hsl(0, 100%, 50%), hsl(60, 100%, 50%), hsl(120, 100%, 50%), hsl(180, 100%, 50%), hsl(240, 100%, 50%), hsl(300, 100%, 50%), hsl(360, 100%, 50%))`
-                  }}
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    const x = (e.clientX - rect.left) / rect.width
-                    const hue = x * 360
-                    const sat = 1
-                    const light = 0.5
-                    const rgb = formatRgb({ mode: 'hsl', h: hue / 360, s: sat, l: light })
-                    if (rgb) {
-                      const [, r, g, b] = rgb.match(/\d+/g)?.map(Number) || [0, 128, 128, 128]
-                      setPickerColor({ r, g, b })
-                    }
-                  }}
-                />
-                <div className="flex items-center gap-2">
+            <div className="flex-1 p-4">
+              <div className="text-xs text-gray-500 uppercase tracking-wider mb-4">Current Selection</div>
+              {selectedColor ? (
+                <div className="space-y-4">
                   <div 
-                    className="w-10 h-10 rounded border border-gray-600"
-                    style={{ backgroundColor: `rgb(${pickerColor.r},${pickerColor.g},${pickerColor.b})` }}
+                    className="w-full aspect-square rounded border border-gray-700"
+                    style={{ backgroundColor: `rgb(${selectedColor.r},${selectedColor.g},${selectedColor.b})` }}
                   />
-                  <div className="flex-1 space-y-1">
-                    <input 
-                      type="range" 
-                      min="0" max="255" 
-                      value={pickerColor.r}
-                      onChange={(e) => setPickerColor({ ...pickerColor, r: Number(e.target.value) })}
-                      className="w-full h-1 bg-gray-700 rounded appearance-none cursor-pointer"
-                    />
-                    <input 
-                      type="range" 
-                      min="0" max="255" 
-                      value={pickerColor.g}
-                      onChange={(e) => setPickerColor({ ...pickerColor, g: Number(e.target.value) })}
-                      className="w-full h-1 bg-gray-700 rounded appearance-none cursor-pointer"
-                    />
-                    <input 
-                      type="range" 
-                      min="0" max="255" 
-                      value={pickerColor.b}
-                      onChange={(e) => setPickerColor({ ...pickerColor, b: Number(e.target.value) })}
-                      className="w-full h-1 bg-gray-700 rounded appearance-none cursor-pointer"
-                    />
-                  </div>
-                </div>
-                <div className="text-xs text-gray-500 mt-1 font-mono">
-                  R:{Math.round(pickerColor.r)} G:{Math.round(pickerColor.g)} B:{Math.round(pickerColor.b)}
-                </div>
-              </div>
-              
-              {/* Selected color info */}
-              <div className="flex-1 p-3 overflow-y-auto">
-                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Selected</div>
-                {selectedColor ? (
-                  <div className="space-y-3">
-                    <div 
-                      className="w-full h-20 rounded border border-gray-700"
-                      style={{ backgroundColor: `rgb(${selectedColor.r},${selectedColor.g},${selectedColor.b})` }}
-                    />
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">RGB</span>
-                        <span className="font-mono">{Math.round(selectedColor.r)}, {Math.round(selectedColor.g)}, {Math.round(selectedColor.b)}</span>
-                      </div>
-                      {hslString && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">HSL</span>
-                          <span className="font-mono">{hslString}</span>
-                        </div>
-                      )}
-                      {labString && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Lab</span>
-                          <span className="font-mono">{labString}</span>
-                        </div>
-                      )}
-                      {luminance !== null && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Lum</span>
-                          <span className="font-mono">{(luminance * 100).toFixed(1)}%</span>
-                        </div>
-                      )}
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">RGB</span>
+                      <span className="font-mono">{Math.round(selectedColor.r)}, {Math.round(selectedColor.g)}, {Math.round(selectedColor.b)}</span>
                     </div>
+                    {hslString && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">HSL</span>
+                        <span className="font-mono">{hslString}</span>
+                      </div>
+                    )}
+                    {labString && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Lab</span>
+                        <span className="font-mono">{labString}</span>
+                      </div>
+                    )}
+                    {luminance !== null && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Lum</span>
+                        <span className="font-mono">{(luminance * 100).toFixed(1)}%</span>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="text-gray-600 text-xs">No selection</div>
-                )}
-              </div>
-            </>
-          )}
-        </aside>
-      </div>
+                </div>
+              ) : (
+                <div className="text-gray-600 text-xs">No selection</div>
+              )}
+            </div>
+          </aside>
+        </div>
       
       {/* Footer */}
-      <footer className="h-6 border-t border-gray-800 flex items-center px-4 text-xs text-gray-600">
+      <footer className="h-6 border-t border-gray-800 flex items-center px-4 text-xs text-gray-600" data-tauri-drag-region>
         <span>{colors.length} color{colors.length !== 1 ? 's' : ''} in palette</span>
+        <span className="mx-2">•</span>
+        <span className="font-mono">{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
       </footer>
     </div>
   )

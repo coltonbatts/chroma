@@ -7,13 +7,15 @@
     "devUrl": "http://localhost:5173"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Chroma",
         "width": 1200,
         "height": 800,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "decorations": true
       }
     ],
     "security": {

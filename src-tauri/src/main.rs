@@ -7,10 +7,25 @@ fn greet(name: &str) -> String {
     format!("Hello, {}!", name)
 }
 
+#[tauri::command]
+fn close_window(window: tauri::Window) {
+    window.close().unwrap();
+}
+
+#[tauri::command]
+fn minimize_window(window: tauri::Window) {
+    window.minimize().unwrap();
+}
+
+#[tauri::command]
+fn maximize_window(window: tauri::Window) {
+    window.maximize().unwrap();
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet])
-        .setup(|app| {
+        .invoke_handler(tauri::generate_handler![greet, close_window, minimize_window, maximize_window])
+        .setup(|_app| {
             Ok(())
         })
         .run(tauri::generate_context!())
