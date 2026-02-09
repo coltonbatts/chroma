@@ -359,8 +359,9 @@ function App() {
                 <div className="text-gray-600 text-xs">No selection</div>
               )}
             </div>
-          </aside>
-        </div>
+          )}
+        </aside>
+      </div>
       
       {/* Footer */}
       <footer className="h-6 border-t border-gray-800 flex items-center px-4 text-xs text-gray-600" data-tauri-drag-region>
