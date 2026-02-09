@@ -1,97 +1,49 @@
 @import "tailwindcss";
 
-@font-face {
-  font-family: 'Geist Pixel Circle';
-  src: url('/fonts/GeistPixel-Circle.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
+@theme {
+  --font-sans: "Inter", "Geist", "ui-sans-serif", "system-ui", sans-serif;
+  --font-mono: "Geist Mono", "ui-monospace", "SFMono-Regular", monospace;
 }
 
 :root {
-  font-family: 'Geist Pixel Circle', monospace;
-  background-color: #000000;
-  color: #e0e0ee;
+  color-scheme: dark;
 }
 
-html, body {
+body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
   background-color: #000000;
-  -webkit-font-smoothing: none;
+  color: #e0e0ee;
+  -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow: hidden; /* Frameless window */
+  overflow: hidden;
+  font-family: var(--font-sans);
 }
 
-/* Frameless window styling */
-@media (-webkit-appearance: frameless-window) {
-  body {
-    border: none;
-  }
+/* Custom Scrollbar for specific containers */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
 }
 
-/* Full black palette */
-.bg-black {
-  background-color: #000000;
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.bg-gray-900 {
-  background-color: #050505;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1a1a1a;
+  border-radius: 10px;
 }
 
-.bg-gray-800 {
-  background-color: #0a0a0a;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #262626;
 }
 
-.border-gray-800 {
-  border-color: #1a1a1a;
-}
-
-.border-gray-700 {
-  border-color: #262626;
-}
-
-.border-gray-600 {
-  border-color: #333333;
-}
-
-/* Text colors */
-.text-gray-200 {
-  color: #e0e0e0;
-}
-
-.text-gray-400 {
-  color: #888888;
-}
-
-.text-gray-500 {
-  color: #666666;
-}
-
-.text-gray-600 {
-  color: #4d4d4d;
-}
-
-/* Interactive states */
-.hover\:bg-gray-700:hover {
-  background-color: #171717;
-}
-
-.hover\:text-white:hover {
-  color: #ffffff;
-}
-
-.group-hover\:opacity-100 {
-  opacity: 1;
-}
-
-.hover\:text-red-400:hover {
-  color: #f87171;
-}
-
-/* Scrollbar styling */
+/* Global scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -99,14 +51,23 @@ html, body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1a1a1a;
+  background: #111;
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #262626;
+  background: #222;
 }
 
-/* Vertical writing mode for wordmark */
+/* Glassmorphism */
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Vertical writing mode */
 .writing-vertical-rl {
   writing-mode: vertical-rl;
 }
@@ -115,11 +76,27 @@ html, body {
   transform: rotate(180deg);
 }
 
-/* Tauri drag region for frameless windows */
+/* Tauri drag region */
 [data-tauri-drag-region] {
   -webkit-app-region: drag;
 }
 
-[data-tauri-drag-region] button {
+[data-tauri-drag-region] button,
+[data-tauri-drag-region] a,
+[data-tauri-drag-region] input {
   -webkit-app-region: no-drag;
+}
+
+/* Utility classes that don't depend on @apply if it's causing issues */
+.pro-border {
+  border-color: #1a1a1a;
+}
+
+.pro-bg {
+  background-color: #050505;
+}
+
+/* Selection Detail Shadow */
+.shadow-inner-soft {
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.4);
 }

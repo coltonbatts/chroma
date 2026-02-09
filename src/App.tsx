@@ -1,79 +1,43 @@
 import { useState, useEffect, useCallback } from 'react'
+import './index.css'
 import { ColorSwatch } from './components/ColorSwatch'
 import { MatchPanel } from './components/MatchPanel'
-import { PaletteColor } from './lib/store'
-import { convertRgbToHsl, convertRgbToLab } from 'culori'
-import { invoke } from '@tauri-apps/api/core'
-
-// Window control handlers via Rust backend
-const handleClose = () => invoke('close_window')
-const handleMinimize = () => invoke('minimize_window')
-const handleMaximize = () => invoke('maximize_window')
+import { TitleBar } from './components/TitleBar'
+import { usePaletteStore } from './lib/store'
+import { createColor } from './lib/colorUtils'
+import { open } from '@tauri-apps/plugin-dialog'
+import { convertFileSrc } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 
 function App() {
-  const [isClient, setIsClient] = useState(false)
-  const [colors, setColors] = useState<PaletteColor[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const { colors, selectedId, selectColor, removeColor, clearPalette, addColor: addColorToStore } = usePaletteStore()
+
+  const [isClient, setIsClient] = useState(import.meta.env.MODE === 'browser')
+  // const [colors, setColors] = useState<PaletteColor[]>([]) // REMOVED
+  // const [selectedId, setSelectedId] = useState<string | null>(null) // REMOVED
   const [imagePath, setImagePath] = useState<string | null>(null)
   const [pickerColor, setPickerColor] = useState({ r: 128, g: 128, b: 128 })
   const [pickerMode, setPickerMode] = useState<'picker' | 'dropper'>('picker')
   const [showMatchPanel, setShowMatchPanel] = useState(false)
-  
-  useEffect(() => {
-    setIsClient(true)
-    const saved = localStorage.getItem('chroma-palette')
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        setColors(parsed.state?.colors || [])
-        setSelectedId(parsed.state?.selectedId || null)
-      } catch (e) {
-        console.error('Failed to load palette:', e)
-      }
-    }
-  }, [])
-  
-  const addColor = useCallback((color: { r: number; g: number; b: number; name?: string }) => {
-    const newColor: PaletteColor = {
-      ...color,
-      id: Math.random().toString(36).substring(2, 9)
-    }
-    const newColors = [...colors, newColor]
-    setColors(newColors)
-    saveToStorage(newColors, selectedId)
-  }, [colors, selectedId])
-  
-  const removeColor = useCallback((id: string) => {
-    const newColors = colors.filter((c) => c.id !== id)
-    setColors(newColors)
-    saveToStorage(newColors, selectedId === id ? null : selectedId)
-  }, [colors, selectedId])
-  
-  const selectColor = useCallback((id: string | null) => {
-    setSelectedId(id)
-    saveToStorage(colors, id)
-  }, [colors])
-  
-  const saveToStorage = (newColors: PaletteColor[], newSelectedId: string | null) => {
-    localStorage.setItem('chroma-palette', JSON.stringify({
-      state: { colors: newColors, selectedId: newSelectedId }
-    }))
-  }
-  
+
   const handleOpenImage = useCallback(async () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = 'image/*'
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) {
-        const url = URL.createObjectURL(file)
-        setImagePath(url)
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{
+          name: 'Image',
+          extensions: ['png', 'jpg', 'jpeg', 'webp']
+        }]
+      })
+
+      if (selected && !Array.isArray(selected)) {
+        setImagePath(convertFileSrc(selected))
       }
+    } catch (e) {
+      console.error('Failed to open image:', e)
     }
-    input.click()
   }, [])
-  
+
   const handleSavePalette = useCallback(() => {
     const data = JSON.stringify({ colors }, null, 2)
     const blob = new Blob([data], { type: 'application/json' })
@@ -84,55 +48,85 @@ function App() {
     a.click()
     URL.revokeObjectURL(url)
   }, [colors])
-  
+
+  useEffect(() => {
+    setIsClient(true)
+
+    // Listen for file drops
+    const unlistenDrop = getCurrentWindow().listen('tauri://drag-drop', (event: any) => {
+      const paths = event.payload?.paths as string[]
+      if (paths && paths.length > 0) {
+        const path = paths[0]
+        if (path.match(/\.(png|jpg|jpeg|webp|gif)$/i)) {
+          setImagePath(convertFileSrc(path))
+        }
+      }
+    })
+
+    // Listen for native menu events
+    const unlistenMenuOpen = getCurrentWindow().listen('menu-open', () => {
+      handleOpenImage()
+    })
+    const unlistenMenuSave = getCurrentWindow().listen('menu-save', () => {
+      handleSavePalette()
+    })
+
+    return () => {
+      unlistenDrop.then(fn => fn())
+      unlistenMenuOpen.then(fn => fn())
+      unlistenMenuSave.then(fn => fn())
+    }
+  }, [handleOpenImage, handleSavePalette])
+
+  const addColor = useCallback((rgb: { r: number; g: number; b: number }) => {
+    const newColor = createColor(rgb.r, rgb.g, rgb.b)
+    addColorToStore(newColor)
+  }, [addColorToStore])
+
+  // removeColor, selectColor, and clearPalette are now direct from store, 
+  // except we need a wrapper for 'handleClearPalette' to match signatures or usage
+  // The 'removeColor' and 'selectColor' from store match exactly what we need,
+  // but let's check usages.
+  // usage: onRemove={... removeColor(color.id)} -> match
+  // usage: onSelect={... selectColor(color.id)} -> match
+
+  // We don't need to define them here if we destructured them from store.
+  // But wait, removeColor in store takes just ID. The old one was useCallback wrapper.
+  // Direct usage is fine.
+
+  // Old saveToStorage helper is removed.
+
   const handleImageClick = useCallback((e: React.MouseEvent<HTMLImageElement>) => {
     if (!imagePath || pickerMode !== 'dropper') return
-    
+
     const img = e.currentTarget
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    
+
     canvas.width = img.naturalWidth
     canvas.height = img.naturalHeight
     ctx.drawImage(img, 0, 0)
-    
+
     const rect = img.getBoundingClientRect()
     const scaleX = img.naturalWidth / rect.width
     const scaleY = img.naturalHeight / rect.height
     const x = (e.clientX - rect.left) * scaleX
     const y = (e.clientY - rect.top) * scaleY
-    
+
     const pixel = ctx.getImageData(x, y, 1, 1).data
     const color = { r: pixel[0], g: pixel[1], b: pixel[2] }
-    
+
     addColor(color)
     setPickerColor(color)
   }, [imagePath, pickerMode, addColor])
-  
+
   const handleClearPalette = useCallback(() => {
-    setColors([])
-    setSelectedId(null)
-    saveToStorage([], null)
-  }, [])
-  
+    clearPalette()
+  }, [clearPalette])
+
   const selectedColor = colors.find(c => c.id === selectedId)
-  const hslString = selectedColor 
-    ? (() => {
-        const hsl = convertRgbToHsl({ r: selectedColor.r / 255, g: selectedColor.g / 255, b: selectedColor.b / 255 })
-        return `${Math.round((hsl.h ?? 0) * 360)}°, ${Math.round((hsl.s ?? 0) * 100)}%, ${Math.round((hsl.l ?? 0) * 100)}%`
-      })()
-    : null
-  const labString = selectedColor
-    ? (() => {
-        const lab = convertRgbToLab({ r: selectedColor.r / 255, g: selectedColor.g / 255, b: selectedColor.b / 255 })
-        return `L: ${lab.l.toFixed(1)} a: ${lab.a.toFixed(1)} b: ${lab.b.toFixed(1)}`
-      })()
-    : null
-  const luminance = selectedColor
-    ? (0.299 * selectedColor.r + 0.587 * selectedColor.g + 0.114 * selectedColor.b) / 255
-    : null
-  
+
   if (!isClient) {
     return (
       <div className="h-screen bg-black text-gray-200 flex items-center justify-center">
@@ -140,234 +134,224 @@ function App() {
       </div>
     )
   }
-  
+
   return (
-    <div 
-      className="h-screen bg-black text-gray-200 flex" 
-      style={{ WebkitUserSelect: 'none' }}
-    >
-      {/* Left Sidebar - Controls + Wordmark + Nav */}
-      <aside 
-        className="w-16 flex flex-col items-center py-3 border-r border-gray-800"
-        data-tauri-drag-region
-      >
-        {/* Traffic Lights */}
-        <div className="flex flex-col gap-2 mb-4">
-          <button 
-            onClick={handleClose}
-            className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
-            title="Close"
-          />
-          <button 
-            onClick={handleMinimize}
-            className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors"
-            title="Minimize"
-          />
-          <button 
-            onClick={handleMaximize}
-            className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors"
-            title="Maximize"
-          />
-        </div>
-        
-        {/* Chroma Wordmark */}
-        <div className="mb-4" data-tauri-drag-region>
-          <h1 
-            className="text-xs font-bold tracking-widest text-gray-200 writing-vertical-rl rotate-180 select-none"
-            data-tauri-drag-region
-          >
-            CHROMA
-          </h1>
-        </div>
-        
-        {/* Navigation buttons */}
-        <nav className="flex-1 flex flex-col items-center gap-4">
-          <button 
-            onClick={() => setShowMatchPanel(false)}
-            className={`p-2 text-xs ${!showMatchPanel ? 'text-gray-200' : 'text-gray-600 hover:text-gray-400'}`}
-            title="Palette"
-          >
-            ◎
-          </button>
-          <button 
-            onClick={() => setShowMatchPanel(true)}
-            className={`p-2 text-xs ${showMatchPanel ? 'text-gray-200' : 'text-gray-600 hover:text-gray-400'}`}
-            title="DMC Match"
-          >
-            ◈
-          </button>
-        </nav>
-        
-        {/* Version */}
-        <div className="text-[8px] text-gray-700 font-mono writing-vertical-rl rotate-180">
-          v0.0.1
-        </div>
-      </aside>
-      
-      {/* Main workspace */}
-      <div className="flex-1 flex flex-col">
-        {/* Left: Palette bar */}
-        <aside className="w-64 border-r border-gray-800 flex flex-col">
-          <div className="p-3 border-b border-gray-800 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-gray-500 uppercase tracking-wider">Palette</div>
-              {colors.length > 0 && (
-                <button 
-                  onClick={handleClearPalette}
-                  className="text-xs text-gray-600 hover:text-red-400"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-            <button 
-              onClick={() => addColor({ r: pickerColor.r, g: pickerColor.g, b: pickerColor.b })}
-              className="w-full py-1 px-2 text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 flex items-center gap-2"
+    <div className="h-screen bg-black text-gray-200 flex flex-col overflow-hidden font-sans">
+      <TitleBar />
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Nav Bar (Pro Narrow) */}
+        <aside className="w-12 flex flex-col items-center py-4 border-r border-gray-800 bg-gray-950/20">
+          <nav className="flex flex-col items-center gap-6">
+            <button
+              onClick={() => setShowMatchPanel(false)}
+              className={`p-2 transition-all ${!showMatchPanel ? 'text-white' : 'text-gray-600 hover:text-gray-400'}`}
+              title="Palette View"
             >
-              <div 
-                className="w-4 h-4 rounded border border-gray-600"
-                style={{ backgroundColor: `rgb(${pickerColor.r},${pickerColor.g},${pickerColor.b})` }}
-              />
-              <span>Add Current</span>
+              <span className="text-xl">◎</span>
             </button>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {colors.map((color) => (
-              <ColorSwatch 
-                key={color.id} 
-                color={color} 
-                isSelected={color.id === selectedId}
-                onSelect={() => selectColor(color.id)}
-                onRemove={() => removeColor(color.id)}
-              />
-            ))}
-          </div>
+            <button
+              onClick={() => setShowMatchPanel(true)}
+              className={`p-2 transition-all ${showMatchPanel ? 'text-white' : 'text-gray-600 hover:text-gray-400'}`}
+              title="DMC Matcher"
+            >
+              <span className="text-xl">◈</span>
+            </button>
+          </nav>
         </aside>
-        
-        {/* Center: Workspace */}
-        <main className="flex-1 flex flex-col">
-          {/* Toolbar */}
-          <div className="h-10 border-b border-gray-800 flex items-center px-4 gap-4 text-xs">
-            <div className="relative group">
-              <button className="hover:text-white text-gray-400">
-                File
+
+        {/* Workspace */}
+        <main className="flex-1 flex flex-col min-w-0">
+          {/* Pro Toolbar */}
+          <header className="h-10 border-b border-gray-800 flex items-center px-4 gap-6 text-[11px] bg-black/50 backdrop-blur-sm">
+            <div className="flex gap-4">
+              <button
+                onClick={handleOpenImage}
+                className="text-gray-400 hover:text-white transition-colors flex items-center gap-1.5"
+              >
+                <span className="text-lg leading-none">+</span> Open
               </button>
-              <div className="absolute left-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg hidden group-hover:block min-w-32 z-50">
-                <button 
-                  onClick={handleOpenImage}
-                  className="block w-full text-left px-3 py-1.5 hover:bg-gray-700 text-gray-300"
-                >
-                  Open...
-                </button>
-                <button 
-                  onClick={handleSavePalette}
-                  className="block w-full text-left px-3 py-1.5 hover:bg-gray-700 text-gray-300"
-                >
-                  Save Palette...
-                </button>
-              </div>
+              <button
+                onClick={handleSavePalette}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                Save
+              </button>
             </div>
-            <button className="hover:text-white text-gray-400">Edit</button>
-            <button className="hover:text-white text-gray-400">View</button>
+
+            <div className="h-4 w-[1px] bg-gray-800 mx-2" />
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => setPickerMode(pickerMode === 'picker' ? 'dropper' : 'picker')}
+                className={`px-2 py-0.5 rounded transition-all ${pickerMode === 'dropper'
+                  ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                  : 'text-gray-400 hover:text-white border border-transparent'
+                  }`}
+              >
+                {pickerMode === 'dropper' ? '● Eyedropper' : 'Eyedropper'}
+              </button>
+              <button className="text-gray-500 hover:text-gray-300 transition-colors">Mixer</button>
+              <button className="text-gray-500 hover:text-gray-300 transition-colors">Spectrum</button>
+            </div>
+
             <div className="flex-1" />
-            <button 
-              onClick={() => setPickerMode(pickerMode === 'picker' ? 'dropper' : 'picker')}
-              className={`px-2 py-0.5 border rounded ${
-                pickerMode === 'dropper' 
-                  ? 'bg-gray-700 border-gray-500 text-white' 
-                  : 'border-gray-700 text-gray-400 hover:text-white'
-              }`}
-            >
-              {pickerMode === 'dropper' ? '● Dropper' : '○ Dropper'}
-            </button>
-            <button className="hover:text-white text-gray-400">Mix</button>
-            <button className="hover:text-white text-gray-400">Spectrum</button>
-            <button 
+
+            <button
               onClick={() => setShowMatchPanel(!showMatchPanel)}
-              className={`px-2 py-0.5 border rounded ${
-                showMatchPanel 
-                  ? 'bg-gray-700 border-gray-500 text-white' 
-                  : 'border-gray-700 text-gray-400 hover:text-white'
-              }`}
+              className={`px-2 py-0.5 rounded transition-all flex items-center gap-2 ${showMatchPanel
+                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                : 'text-gray-400 hover:text-white border border-transparent'
+                }`}
             >
-              {showMatchPanel ? '● Match' : '○ Match'}
+              DMC MATCH
             </button>
-          </div>
-          
-          {/* Canvas / Image area */}
-          <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
-            {imagePath ? (
-              <img 
-                src={imagePath} 
-                alt="Loaded"
-                className={`max-w-full max-h-full object-contain cursor-${pickerMode === 'dropper' ? 'crosshair' : 'default'}`}
-                onClick={handleImageClick}
-              />
-            ) : (
-              <div className="text-gray-600 text-sm flex flex-col items-center gap-2">
-                <span>Workspace ready.</span>
-                <span className="text-gray-500">Drop image or File → Open</span>
+          </header>
+
+          <div className="flex-1 flex overflow-hidden">
+            {/* Palette Bar */}
+            <aside className="w-56 border-r border-gray-800 flex flex-col bg-gray-950/10">
+              <div className="p-3 border-b border-gray-800 flex items-center justify-between">
+                <span className="text-[10px] text-gray-500 font-bold tracking-widest uppercase">Palette</span>
+                {colors.length > 0 && (
+                  <button
+                    onClick={handleClearPalette}
+                    className="text-[9px] text-gray-600 hover:text-red-400 uppercase tracking-tighter"
+                  >
+                    Clear All
+                  </button>
+                )}
               </div>
-            )}
-          </div>
-        </main>
-        
-        {/* Right: Info panel */}
-        <aside className="w-56 border-l border-gray-800 flex flex-col">
-          {showMatchPanel ? (
-            <MatchPanel
-              isOpen={showMatchPanel}
-              selectedColor={selectedColor ? { r: selectedColor.r, g: selectedColor.g, b: selectedColor.b } : null}
-              onAddColor={addColor}
-            />
-          ) : (
-            <div className="flex-1 p-4">
-              <div className="text-xs text-gray-500 uppercase tracking-wider mb-4">Current Selection</div>
-              {selectedColor ? (
-                <div className="space-y-4">
-                  <div 
-                    className="w-full aspect-square rounded border border-gray-700"
-                    style={{ backgroundColor: `rgb(${selectedColor.r},${selectedColor.g},${selectedColor.b})` }}
+              <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                {colors.map((color) => (
+                  <ColorSwatch
+                    key={color.id}
+                    color={color}
+                    isSelected={color.id === selectedId}
+                    onSelect={() => selectColor(color.id)}
+                    onRemove={() => removeColor(color.id)}
                   />
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">RGB</span>
-                      <span className="font-mono">{Math.round(selectedColor.r)}, {Math.round(selectedColor.g)}, {Math.round(selectedColor.b)}</span>
+                ))}
+              </div>
+              <div className="p-3 border-t border-gray-800">
+                <button
+                  onClick={() => addColor({ r: pickerColor.r, g: pickerColor.g, b: pickerColor.b })}
+                  className="w-full py-2 px-2 text-[10px] bg-gray-800 hover:bg-gray-700 transition-colors border border-gray-700 rounded flex items-center justify-center gap-2 font-bold uppercase tracking-widest"
+                >
+                  <div
+                    className="w-2 h-2 rounded-full border border-gray-500"
+                    style={{ backgroundColor: `rgb(${pickerColor.r},${pickerColor.g},${pickerColor.b})` }}
+                  />
+                  Capture
+                </button>
+              </div>
+            </aside>
+
+            {/* Canvas */}
+            <section className="flex-1 bg-[#0a0a0a] flex items-center justify-center relative overflow-hidden group">
+              {imagePath ? (
+                <div className="relative p-4 w-full h-full flex items-center justify-center">
+                  <img
+                    src={imagePath}
+                    alt="Loaded"
+                    className={`max-w-full max-h-full object-contain shadow-2xl transition-all duration-300 ${pickerMode === 'dropper' ? 'cursor-crosshair' : 'cursor-default'}`}
+                    onClick={handleImageClick}
+                  />
+                  {pickerMode === 'dropper' && (
+                    <div className="absolute top-4 right-4 pointer-events-none bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded text-[10px] text-blue-400 font-bold uppercase tracking-widest animate-pulse">
+                      Dropper Active
                     </div>
-                    {hslString && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">HSL</span>
-                        <span className="font-mono">{hslString}</span>
-                      </div>
-                    )}
-                    {labString && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Lab</span>
-                        <span className="font-mono">{labString}</span>
-                      </div>
-                    )}
-                    {luminance !== null && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Lum</span>
-                        <span className="font-mono">{(luminance * 100).toFixed(1)}%</span>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               ) : (
-                <div className="text-gray-600 text-xs">No selection</div>
+                <div
+                  className="flex flex-col items-center gap-8 cursor-pointer group/welcome max-w-sm text-center"
+                  onClick={handleOpenImage}
+                >
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gray-500/5 blur-3xl rounded-full scale-150 group-hover/welcome:bg-gray-400/10 transition-all duration-700" />
+                    <div className="w-20 h-20 border border-gray-800 rounded-2xl flex items-center justify-center bg-gray-950/50 backdrop-blur-sm group-hover/welcome:border-gray-600 group-hover/welcome:bg-gray-900 transition-all duration-300 relative z-10">
+                      <span className="text-3xl text-gray-700 group-hover/welcome:text-gray-400 transition-colors">+</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3 relative z-10">
+                    <div className="text-[13px] text-gray-400 font-bold tracking-tight">Drop image or click to begin</div>
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="px-2 py-0.5 border border-gray-800 rounded bg-gray-950/30 text-[9px] text-gray-600 font-mono uppercase tracking-widest">⌘O</div>
+                      <span className="text-gray-800 text-[10px]">•</span>
+                      <div className="text-[9px] text-gray-600 uppercase tracking-[0.2em] font-medium">PNG, JPG, WEBP</div>
+                    </div>
+                  </div>
+                </div>
               )}
-            </div>
-          )}
-        </aside>
+            </section>
+
+            {/* Selection Details */}
+            <aside className="w-64 border-l border-gray-800 flex flex-col bg-gray-950/10">
+              {showMatchPanel ? (
+                <MatchPanel
+                  isOpen={showMatchPanel}
+                  selectedColor={selectedColor ? selectedColor.rgb : null}
+                  onAddColor={addColor}
+                />
+              ) : (
+                <div className="flex-1 p-5 overflow-y-auto">
+                  <div className="text-[10px] text-gray-500 font-bold tracking-widest uppercase mb-6">Selection</div>
+                  {selectedColor ? (
+                    <div className="space-y-8">
+                      <div
+                        className="w-full aspect-square rounded-xl border border-gray-800 shadow-inner overflow-hidden"
+                        style={{ backgroundColor: selectedColor.hex }}
+                      >
+                        <div className="w-full h-full bg-gradient-to-tr from-black/20 to-transparent" />
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="group">
+                          <span className="text-[9px] text-gray-600 block mb-1 font-mono uppercase">RGB</span>
+                          <span className="text-xs font-mono text-gray-300 bg-gray-900/50 p-1.5 rounded block border border-gray-800">
+                            {selectedColor.rgb.r}, {selectedColor.rgb.g}, {selectedColor.rgb.b}
+                          </span>
+                        </div>
+
+                        <div className="group">
+                          <span className="text-[9px] text-gray-600 block mb-1 font-mono uppercase">HSL</span>
+                          <span className="text-xs font-mono text-gray-300 bg-gray-900/50 p-1.5 rounded block border border-gray-800">
+                            {selectedColor.hsl.h}°, {selectedColor.hsl.s}%, {selectedColor.hsl.l}%
+                          </span>
+                        </div>
+
+                        <div className="group">
+                          <span className="text-[9px] text-gray-600 block mb-1 font-mono uppercase">Lab</span>
+                          <span className="text-xs font-mono text-gray-300 bg-gray-900/50 p-1.5 rounded block border border-gray-800">
+                            L: {selectedColor.lab.l.toFixed(1)} a: {selectedColor.lab.a.toFixed(1)} b: {selectedColor.lab.b.toFixed(1)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between border-t border-gray-800 pt-4 mt-4">
+                          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Luminance</span>
+                          <span className="text-xs font-mono text-gray-400">{(selectedColor.luminance * 100).toFixed(1)}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
+                      <div className="text-[40px] mb-2">◌</div>
+                      <div className="text-[10px] text-gray-500 uppercase tracking-widest">No Selection</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </aside>
+          </div>
+        </main>
       </div>
-      
-      {/* Footer */}
-      <footer className="h-6 border-t border-gray-800 flex items-center px-4 text-xs text-gray-600" data-tauri-drag-region>
-        <span>{colors.length} color{colors.length !== 1 ? 's' : ''} in palette</span>
-        <span className="mx-2">•</span>
-        <span className="font-mono">{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+
+      {/* Micro Footer */}
+      <footer className="h-6 border-t border-gray-800 flex items-center px-4 text-[9px] text-gray-600 bg-black" data-tauri-drag-region>
+        <span className="uppercase tracking-widest">{colors.length} colors</span>
+        <div className="flex-1" />
+        <span className="font-mono opacity-50">{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
       </footer>
     </div>
   )

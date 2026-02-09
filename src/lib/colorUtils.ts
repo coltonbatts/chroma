@@ -1,32 +1,65 @@
 /**
- * Color utility functions for DMC matching
+ * Color utility functions
  */
 
-import { convertRgbToLab } from 'culori'
+import { parse } from 'culori'
+import { Color } from './types'
+import { rgbToHex as _rgbToHex, rgbToHsl as _rgbToHsl, rgbToLab as _rgbToLab, getLuminance as _getLuminance } from './conversions'
 
-export interface Lab {
-  mode: 'lab'
-  l: number
-  a: number
-  b: number
-  alpha?: number
+export const rgbToHex = _rgbToHex
+export const rgbToHsl = _rgbToHsl
+export const rgbToLab = _rgbToLab
+export const getLuminance = _getLuminance
+
+/**
+ * Validates if a string is a valid color
+ */
+export function isValidColor(color: string): boolean {
+  return !!parse(color)
 }
 
 /**
- * Convert RGB to Lab color space for perceptual color matching
+ * Generates a random Color object
  */
-export function rgbToLab(r: number, g: number, b: number): Lab {
-  return convertRgbToLab({ r: r / 255, g: g / 255, b: b / 255 }) as Lab
+export function generateRandomColor(): Color {
+  const r = Math.floor(Math.random() * 256)
+  const g = Math.floor(Math.random() * 256)
+  const b = Math.floor(Math.random() * 256)
+
+  return createColor(r, g, b)
 }
 
 /**
- * Simple Euclidean distance in Lab space (faster than CIEDE2000)
- * For better perceptual accuracy, consider implementing full CIEDE2000
+ * Creates a full Color object from RGB values
+ */
+export function createColor(r: number, g: number, b: number): Color {
+  const hex = rgbToHex(r, g, b)
+  const hsl = rgbToHsl(r, g, b)
+  const lab = rgbToLab(r, g, b)
+  const luminance = getLuminance(r, g, b)
+
+  return {
+    id: crypto.randomUUID(),
+    hex,
+    rgb: { r, g, b },
+    hsl,
+    lab,
+    luminance
+  }
+}
+
+// Re-export DMC specific utilities if needed, or keep them here if they are unique
+// The original file had `deltaE` and `getMatchConfidence`. I will keep `deltaE` compatible with the new `Lab` type.
+
+import { Lab } from './types'
+
+/**
+ * Simple Euclidean distance in Lab space
  */
 export function deltaE(lab1: Lab, lab2: Lab): number {
-  const dL = lab2.l - lab1.l
-  const da = lab2.a - lab1.a
-  const db = lab2.b - lab1.b
+  const dL = lab1.l - lab2.l
+  const da = lab1.a - lab2.a
+  const db = lab1.b - lab2.b
   return Math.sqrt(dL * dL + da * da + db * db)
 }
 

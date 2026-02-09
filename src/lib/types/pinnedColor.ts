@@ -1,5 +1,5 @@
 import { SpectralRecipe } from '../spectral/types'
-import { MixingRecipe } from '../colorMixer'
+// import { MixingRecipe } from '../colorMixer'
 import { DMCMatch } from '../dmcFloss'
 
 export interface PinnedColor {
@@ -10,6 +10,7 @@ export interface PinnedColor {
     label: string
     timestamp: number
     spectralRecipe: SpectralRecipe | null
-    fallbackRecipe: MixingRecipe
+    fallbackRecipe: any // MixingRecipe
+
     dmcMatches: DMCMatch[]
 }

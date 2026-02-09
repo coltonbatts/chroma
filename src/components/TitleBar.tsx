@@ -1,81 +1,72 @@
-/**
- * Custom Title Bar for Chroma
- * Replaces native macOS title bar with our own black design
- */
-
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 
 interface TitleBarProps {
   title?: string
 }
 
 export function TitleBar({ title = 'Chroma' }: TitleBarProps) {
-  const [isMaximized, setIsMaximized] = useState(false)
-
-  // Listen for window maximize state changes
+  let appWindow
+  try {
+    appWindow = getCurrentWindow()
+  } catch (e) {
+    console.warn('Failed to get current window:', e)
+  }
   useEffect(() => {
-    // This would need Tauri API calls for real window control
-    // For now, just show the UI
-  }, [])
+    console.log('TitleBar mounted, appWindow:', appWindow)
+    if (!appWindow) return
+
+    const checkMaximized = async () => {
+      // Internal logic for potential future use
+    }
+    checkMaximized()
+
+    if (appWindow.onResized) {
+      const unlisten = appWindow.onResized(() => {
+        checkMaximized()
+      })
+      return () => {
+        unlisten.then(f => f && f())
+      }
+    }
+  }, [appWindow])
 
   return (
-    <div 
-      className="h-10 flex items-center px-3 bg-black border-b border-gray-800 select-none"
-      style={{ 
-        WebkitAppRegion: 'drag',
-        paddingTop: 'env(safe-area-inset-top, 0px)'
-      }}
+    <div
+      className="h-10 flex items-center px-4 bg-black border-b border-gray-800 select-none"
+      data-tauri-drag-region
     >
       {/* Traffic lights */}
-      <div 
-        className="flex items-center gap-2 mr-4"
-        style={{ WebkitAppRegion: 'no-drag' }}
+      <div
+        className="flex items-center gap-2 mr-6"
+        style={{ WebkitAppRegion: 'no-drag' } as any}
       >
-        {/* Close */}
         <button
-          className="w-3 h-3 rounded-full bg-gray-600 hover:bg-red-500 transition-colors"
-          onClick={() => {
-            // Would close window via Tauri API
-            window.close?.()
-          }}
-        />
-        {/* Minimize */}
+          className="w-3 h-3 rounded-full bg-red-500/80 hover:bg-red-500 transition-colors flex items-center justify-center group"
+          onClick={() => appWindow?.close()}
+        >
+          <span className="text-[8px] text-red-900 opacity-0 group-hover:opacity-100">×</span>
+        </button>
         <button
-          className="w-3 h-3 rounded-full bg-gray-600 hover:bg-yellow-500 transition-colors"
-          onClick={() => {
-            // Would minimize via Tauri API  
-            window.minimize?.()
-          }}
-        />
-        {/* Maximize */}
+          className="w-3 h-3 rounded-full bg-yellow-500/80 hover:bg-yellow-500 transition-colors flex items-center justify-center group"
+          onClick={() => appWindow?.minimize()}
+        >
+          <span className="text-[8px] text-yellow-900 opacity-0 group-hover:opacity-100">−</span>
+        </button>
         <button
-          className="w-3 h-3 rounded-full bg-gray-600 hover:bg-green-500 transition-colors"
-          onClick={() => {
-            setIsMaximized(!isMaximized)
-            // Would toggle maximize via Tauri API
-            window.maximize?.()
-          }}
-        />
+          className="w-3 h-3 rounded-full bg-green-500/80 hover:bg-green-500 transition-colors flex items-center justify-center group"
+          onClick={() => appWindow?.toggleMaximize()}
+        >
+          <span className="text-[8px] text-green-900 opacity-0 group-hover:opacity-100">+</span>
+        </button>
       </div>
 
-      {/* Title */}
-      <div className="flex-1 text-center">
-        <h1 className="text-sm font-bold tracking-[0.2em] text-gray-200 uppercase">
-          {title}
+      {/* Center Title */}
+      <div className="flex-1 text-center pr-20" data-tauri-drag-region>
+        <h1 className="text-[10px] font-bold tracking-[0.3em] text-gray-500 uppercase select-none pointer-events-none">
+          {title} <span className="text-gray-700 ml-2 font-mono">v0.1.0</span>
         </h1>
       </div>
-
-      {/* Spacer for symmetry */}
-      <div className="w-12" />
     </div>
   )
-}
-
-// These would be Tauri window API calls
-declare global {
-  interface Window {
-    close?: () => void
-    minimize?: () => void
-    maximize?: () => void
-  }
 }

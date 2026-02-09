@@ -1,13 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chroma</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chroma</title>
+  <script>
+    // Early synchronous mock for Tauri internals to prevent @tauri-apps/api from crashing
+    window.__TAURI_INTERNALS__ = {
+      metadata: {
+        window: { label: 'main' },
+        app: { name: 'chroma', version: '0.1.0' }
+      },
+      convertFileSrc: (url) => url,
+      invoke: () => Promise.resolve(),
+      plugins: {}
+    };
+    window.__TAURI_METADATA__ = window.__TAURI_INTERNALS__.metadata;
+
+
+    // Mock for direct window access
+    window.__TAURI__ = {
+      window: {
+        getCurrentWindow: () => ({
+          label: 'main',
+          listen: () => Promise.resolve(() => { }),
+          onResized: () => Promise.resolve(() => { }),
+          close: () => console.log('Mock Close'),
+          minimize: () => console.log('Mock Minimize'),
+          toggleMaximize: () => console.log('Mock Maximize')
+        })
+      },
+      dialog: {
+        open: () => Promise.resolve(null)
+      }
+    };
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

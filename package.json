@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "browser:dev": "vite --mode browser",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "desktop:dev": "tauri dev",
@@ -13,12 +14,14 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-fs": "^2.0.0",
     "culori": "^4.0.2",
     "geist": "^1.7.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "spectral.js": "^3.0.0",
-    "zustand": "^5.0.0"
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",

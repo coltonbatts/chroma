@@ -3,7 +3,9 @@
  * Data source: DMC Cotton Floss RGB Values
  */
 
-import { rgbToLab, deltaE, getMatchConfidence, Lab } from './colorUtils'
+import { deltaE, getMatchConfidence } from './colorUtils'
+import { rgbToLab } from './conversions'
+import { Lab } from './types'
 
 export interface DMCColor {
   number: string

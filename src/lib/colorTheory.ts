@@ -5,11 +5,11 @@
  * 12-segment RYB color wheel with harmonies and analysis
  */
 
-import { RGB, HSL } from './color/types';
-import { rgbToHsl as colorTheoryRgbToHsl, rgbToHex as canonicalRgbToHex } from './color/conversions';
+import { RGB } from './types';
+import { rgbToHsl as colorTheoryRgbToHsl, rgbToHex as canonicalRgbToHex } from './conversions';
 
 // Export types for use in other modules
-export type { RGB } from './color/types'
+export type { RGB } from './types'
 
 // Re-export commonly used functions
 export const rgbToHsl = colorTheoryRgbToHsl

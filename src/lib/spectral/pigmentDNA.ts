@@ -2,7 +2,7 @@
  * pigmentDNA - Calculates the physical pigment ratios for the Spectral Layer Breakdown.
  */
 import { getSpectralSync, mixPigmentsSync, isSpectralAvailable } from './adapter';
-import { Pigment } from './types';
+// import { Pigment } from './types';
 import { PALETTE_MAP } from './palette';
 
 export interface PigmentRatio {
@@ -71,7 +71,7 @@ export async function calculateDeadColorDNA(grayscaleValue: number): Promise<Pig
  * For Imprimatura: Suggest a thinned-down version of the dominant undertone.
  * Usually raw umber or a warm earth tone.
  */
-export async function calculateImprimaturaDNA(dominantHex: string): Promise<PigmentRatio[]> {
+export async function calculateImprimaturaDNA(_dominantHex: string): Promise<PigmentRatio[]> {
     // For now, simpler implementation: suggest Raw Umber if warm, Ivory Black if cool?
     // User requested "dominant warm/cool undertone".
     // A better approach is matching the dominant color using the whole palette.

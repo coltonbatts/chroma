@@ -1,73 +1,98 @@
 import { useState } from 'react'
-import { formatRgb, formatHex } from 'culori'
+import { Color } from '../lib/types'
 
 interface ColorSwatchProps {
-  color: { id: string; r: number; g: number; b: number; name?: string }
-  onRemove: () => void
+  color: Color
+  onRemove?: () => void
   isSelected?: boolean
   onSelect?: () => void
 }
 
 export function ColorSwatch({ color, onRemove, isSelected, onSelect }: ColorSwatchProps) {
   const [copied, setCopied] = useState<'rgb' | 'hex' | null>(null)
-  
-  const rgbString = formatRgb({ mode: 'rgb', r: color.r / 255, g: color.g / 255, b: color.b / 255 })
-  const hexString = formatHex({ mode: 'rgb', r: color.r / 255, g: color.g / 255, b: color.b / 255 }) || '#000000'
-  
+
   const handleCopy = (e: React.MouseEvent, type: 'rgb' | 'hex') => {
     e.stopPropagation()
-    navigator.clipboard.writeText(type === 'rgb' ? rgbString : hexString)
+    const text = type === 'rgb'
+      ? `rgb(${color.rgb.r}, ${color.rgb.g}, ${color.rgb.b})`
+      : color.hex
+    navigator.clipboard.writeText(text)
     setCopied(type)
-    setTimeout(() => setCopied(null), 1000)
+    setTimeout(() => setCopied(null), 1500)
   }
-  
+
   return (
-    <div 
+    <div
       onClick={onSelect}
       className={`
-        group flex items-center gap-2 p-1.5 rounded cursor-pointer
-        ${isSelected ? 'bg-gray-800 ring-1 ring-gray-500' : 'hover:bg-gray-900'}
+        group relative flex items-center gap-2.5 p-1.5 rounded-md cursor-pointer transition-all duration-150
+        ${isSelected ? 'bg-gray-800/80 ring-1 ring-gray-700 shadow-lg' : 'hover:bg-gray-900/60'}
       `}
     >
       {/* Color preview */}
-      <div 
-        className="w-8 h-8 rounded border border-gray-700 shrink-0"
-        style={{ backgroundColor: rgbString }}
+      <div
+        className="w-7 h-7 rounded border border-white/5 shrink-0 shadow-sm transition-transform group-hover:scale-105"
+        style={{ backgroundColor: color.hex }}
       />
-      
+
       {/* Color info */}
-      <div className="flex-1 min-w-0">
-        <div className="text-xs font-mono truncate text-gray-300">
-          {hexString.toUpperCase()}
-        </div>
-        <div className="text-[10px] font-mono truncate text-gray-600">
-          {Math.round(color.r)},{Math.round(color.g)},{Math.round(color.b)}
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        <span className={`text-[10px] font-bold font-mono transition-colors ${isSelected ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'}`}>
+          {color.hex.toUpperCase()}
+        </span>
+      </div>
+
+      {/* Hover Tooltip/Details */}
+      <div className="absolute left-full top-0 ml-2 z-50 hidden group-hover:block w-max">
+        <div className="bg-gray-900 border border-gray-800 rounded-lg shadow-xl p-3 text-[10px] space-y-1.5 backdrop-blur-sm">
+          <div className="font-bold text-gray-300 border-b border-gray-800 pb-1 mb-1">Color Details</div>
+
+          <div className="grid grid-cols-[20px_1fr] gap-2">
+            <span className="text-gray-500 font-mono">HEX</span>
+            <span className="font-mono text-gray-400">{color.hex.toUpperCase()}</span>
+          </div>
+
+          <div className="grid grid-cols-[20px_1fr] gap-2">
+            <span className="text-gray-500 font-mono">RGB</span>
+            <span className="font-mono text-gray-400">
+              {color.rgb.r}, {color.rgb.g}, {color.rgb.b}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-[20px_1fr] gap-2">
+            <span className="text-gray-500 font-mono">HSL</span>
+            <span className="font-mono text-gray-400">
+              {color.hsl.h}°, {color.hsl.s}%, {color.hsl.l}%
+            </span>
+          </div>
+
+          <div className="grid grid-cols-[20px_1fr] gap-2">
+            <span className="text-gray-500 font-mono">LAB</span>
+            <span className="font-mono text-gray-400">
+              {color.lab.l.toFixed(0)}, {color.lab.a.toFixed(0)}, {color.lab.b.toFixed(0)}
+            </span>
+          </div>
         </div>
       </div>
-      
+
       {/* Actions */}
-      <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
         <button
           onClick={(e) => handleCopy(e, 'hex')}
-          className="p-1 text-gray-600 hover:text-gray-300"
-          title="Copy Hex"
+          className={`w-6 h-6 flex items-center justify-center rounded hover:bg-white/5 text-[9px] font-bold ${copied === 'hex' ? 'text-green-400' : 'text-gray-500 hover:text-gray-300'}`}
+          title="Copy HEX"
         >
           {copied === 'hex' ? '✓' : '#'}
         </button>
-        <button
-          onClick={(e) => handleCopy(e, 'rgb')}
-          className="p-1 text-gray-600 hover:text-gray-300"
-          title="Copy RGB"
-        >
-          {copied === 'rgb' ? '✓' : '📋'}
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onRemove() }}
-          className="p-1 text-gray-600 hover:text-red-400"
-          title="Remove"
-        >
-          ×
-        </button>
+        {onRemove && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove() }}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-500/10 text-gray-600 hover:text-red-400 text-lg leading-none"
+            title="Remove"
+          >
+            ×
+          </button>
+        )}
       </div>
     </div>
   )

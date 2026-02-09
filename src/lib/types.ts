@@ -26,3 +26,19 @@ export interface ValueMetadata {
     range: [number, number];
     percentile: number;
 }
+
+export interface Lab {
+    l: number;
+    a: number;
+    b: number;
+    alpha?: number;
+}
+
+export interface Color {
+    id: string;
+    hex: string;
+    rgb: RGB;
+    hsl: HSL;
+    lab: Lab;
+    luminance: number; // 0-1
+}

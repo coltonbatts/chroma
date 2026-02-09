@@ -1,4 +1,14 @@
-#tauri-cli = { version = "2", features = [] }
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-fuse-ld=lld", "-C", "split-debuginfo=unpacked"]
 
-[build]
-target = "x86_64-apple-darwin"
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-fuse-ld=lld", "-C", "split-debuginfo=unpacked"]
+
+[profile.dev]
+incremental = true
+opt-level = 0
+debug = 1
+split-debuginfo = "unpacked"
+
+[profile.dev.package."*"]
+opt-level = 3

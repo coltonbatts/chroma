@@ -59,7 +59,9 @@
  * @module paletteGenerator
  */
 
-import { rgbToLab, deltaE, Lab } from './colorUtils'
+import { deltaE } from './colorUtils'
+import { rgbToLab } from './conversions'
+import { Lab } from './types'
 import { findClosestDMCColors } from './dmcFloss'
 
 /**
