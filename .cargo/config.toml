@@ -1,0 +1,4 @@
+#tauri-cli = { version = "2", features = [] }
+
+[build]
+target = "x86_64-apple-darwin"

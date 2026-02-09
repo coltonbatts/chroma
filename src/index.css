@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Geist Pixel Circle';
+  src: url('/fonts/GeistPixel-Circle.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+:root {
+  font-family: 'Geist Pixel Circle', monospace;
+  background-color: #000000;
+  color: #e0e0e0;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #000000;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Full black palette */
+.bg-black {
+  background-color: #000000;
+}
+
+.bg-gray-900 {
+  background-color: #050505;
+}
+
+.bg-gray-800 {
+  background-color: #0a0a0a;
+}
+
+.border-gray-800 {
+  border-color: #1a1a1a;
+}
+
+.border-gray-700 {
+  border-color: #262626;
+}
+
+.border-gray-600 {
+  border-color: #333333;
+}
+
+/* Text colors */
+.text-gray-200 {
+  color: #e0e0e0;
+}
+
+.text-gray-400 {
+  color: #888888;
+}
+
+.text-gray-500 {
+  color: #666666;
+}
+
+.text-gray-600 {
+  color: #4d4d4d;
+}
+
+/* Interactive states */
+.hover\:bg-gray-700:hover {
+  background-color: #171717;
+}
+
+.hover\:text-white:hover {
+  color: #ffffff;
+}
+
+.group-hover\:opacity-100 {
+  opacity: 1;
+}
+
+.hover\:text-red-400:hover {
+  color: #f87171;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #262626;
+}
