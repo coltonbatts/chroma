@@ -52,8 +52,16 @@ function App() {
   useEffect(() => {
     setIsClient(true)
 
+    let appWindow: ReturnType<typeof getCurrentWindow> | null = null
+    try {
+      appWindow = getCurrentWindow()
+    } catch (e) {
+      console.warn('getCurrentWindow() not available (browser mode):', e)
+      return
+    }
+
     // Listen for file drops
-    const unlistenDrop = getCurrentWindow().listen('tauri://drag-drop', (event: any) => {
+    const unlistenDrop = appWindow.listen('tauri://drag-drop', (event: any) => {
       const paths = event.payload?.paths as string[]
       if (paths && paths.length > 0) {
         const path = paths[0]
@@ -64,10 +72,10 @@ function App() {
     })
 
     // Listen for native menu events
-    const unlistenMenuOpen = getCurrentWindow().listen('menu-open', () => {
+    const unlistenMenuOpen = appWindow.listen('menu-open', () => {
       handleOpenImage()
     })
-    const unlistenMenuSave = getCurrentWindow().listen('menu-save', () => {
+    const unlistenMenuSave = appWindow.listen('menu-save', () => {
       handleSavePalette()
     })
 

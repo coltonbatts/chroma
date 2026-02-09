@@ -69,7 +69,7 @@ Everything runs locally on your machine—no internet required after initial set
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/chroma.git
+git clone https://github.com/coltonbatts/chroma.git
 cd chroma
 
 # Install dependencies
@@ -95,7 +95,10 @@ The built application will be in `src-tauri/target/release/bundle/`.
 ### Terminal Commands
 
 ```bash
-# Development mode
+# Browser-only development (no Rust toolchain required)
+npm run browser:dev
+
+# Full desktop development (requires Rust)
 pnpm desktop:dev
 
 # Production build
@@ -104,6 +107,10 @@ pnpm desktop:build
 # Preview production build
 pnpm preview
 ```
+
+### Browser Development Mode
+
+Chroma supports a **browser-first dev workflow** so you can iterate on the UI without needing the Rust/Tauri toolchain installed. Run `npm run browser:dev` and open `http://localhost:5173`. Tauri-specific APIs (window controls, native dialogs, drag-and-drop) are automatically mocked via `index.html` so the app renders in any browser. Tauri-only features degrade gracefully—the rest of the UI is fully functional.
 
 ### Desktop Launcher
 
