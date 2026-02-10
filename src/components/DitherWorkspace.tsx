@@ -47,6 +47,7 @@ export const DitherWorkspace = forwardRef<HTMLCanvasElement | null, DitherWorksp
             <canvas
               ref={canvasRef}
               className="max-w-full max-h-full object-contain"
+              style={{ imageRendering: 'pixelated' }}
             />
           ) : (
             <div className="text-gray-600 text-xs uppercase tracking-widest">

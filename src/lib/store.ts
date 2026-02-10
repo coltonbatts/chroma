@@ -5,7 +5,7 @@ import { createColor } from './colorUtils'
 import { DitherSettings, DEFAULT_DITHER_SETTINGS } from './dithering/types'
 
 // View mode for the application
-export type ViewMode = 'palette' | 'dmc' | 'dither'
+export type ViewMode = 'palette' | 'dmc' | 'mixer' | 'dither'
 
 // Dither settings store (separate, persisted)
 export interface DitherStoreState {

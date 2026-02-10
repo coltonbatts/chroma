@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import './index.css'
 import { ColorSwatch } from './components/ColorSwatch'
 import { MatchPanel } from './components/MatchPanel'
+import { MixerPanel } from './components/MixerPanel'
+import { SelectionPanel } from './components/SelectionPanel'
 import { DitherView } from './components/DitherView'
 import { TitleBar } from './components/TitleBar'
 import { usePaletteStore, useDitherStore } from './lib/store'
@@ -19,6 +21,7 @@ function App() {
   const [imagePath, setImagePath] = useState<string | null>(null)
   const [pickerColor, setPickerColor] = useState({ r: 128, g: 128, b: 128 })
   const [pickerMode, setPickerMode] = useState<'picker' | 'dropper'>('picker')
+  const isPickingRef = useRef(false)
   const { viewMode, setViewMode } = useDitherStore()
 
   const handleOpenImage = useCallback(async () => {
@@ -121,10 +124,16 @@ function App() {
     }
   }, [handleOpenImage, handleSavePalette])
 
-  const addColor = useCallback((rgb: { r: number; g: number; b: number }) => {
+  const addColor = useCallback((
+    rgb: { r: number; g: number; b: number },
+    options?: { select?: boolean }
+  ) => {
     const newColor = createColor(rgb.r, rgb.g, rgb.b)
     addColorToStore(newColor)
-  }, [addColorToStore])
+    if (options?.select) {
+      selectColor(newColor.id)
+    }
+  }, [addColorToStore, selectColor])
 
   // removeColor, selectColor, and clearPalette are now direct from store, 
   // except we need a wrapper for 'handleClearPalette' to match signatures or usage
@@ -139,30 +148,48 @@ function App() {
 
   // Old saveToStorage helper is removed.
 
-  const handleImageClick = useCallback((e: React.MouseEvent<HTMLImageElement>) => {
-    if (!imagePath || pickerMode !== 'dropper') return
-
+  const sampleAtEvent = useCallback((e: React.MouseEvent<HTMLImageElement>) => {
     const img = e.currentTarget
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    canvas.width = img.naturalWidth
-    canvas.height = img.naturalHeight
-    ctx.drawImage(img, 0, 0)
+    try {
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      ctx.drawImage(img, 0, 0)
 
-    const rect = img.getBoundingClientRect()
-    const scaleX = img.naturalWidth / rect.width
-    const scaleY = img.naturalHeight / rect.height
-    const x = (e.clientX - rect.left) * scaleX
-    const y = (e.clientY - rect.top) * scaleY
+      const rect = img.getBoundingClientRect()
+      const scaleX = img.naturalWidth / rect.width
+      const scaleY = img.naturalHeight / rect.height
+      const x = (e.clientX - rect.left) * scaleX
+      const y = (e.clientY - rect.top) * scaleY
+      const px = Math.max(0, Math.min(img.naturalWidth - 1, Math.floor(x)))
+      const py = Math.max(0, Math.min(img.naturalHeight - 1, Math.floor(y)))
 
-    const pixel = ctx.getImageData(x, y, 1, 1).data
-    const color = { r: pixel[0], g: pixel[1], b: pixel[2] }
+      const pixel = ctx.getImageData(px, py, 1, 1).data
+      setPickerColor({ r: pixel[0], g: pixel[1], b: pixel[2] })
+    } catch (err) {
+      console.error('Failed to sample color:', err)
+    }
+  }, [])
 
-    addColor(color)
-    setPickerColor(color)
-  }, [imagePath, pickerMode, addColor])
+  const handleImageMouseDown = useCallback((e: React.MouseEvent<HTMLImageElement>) => {
+    if (!imagePath || e.button !== 0) return
+    isPickingRef.current = true
+    sampleAtEvent(e)
+  }, [imagePath, sampleAtEvent])
+
+  const handleImageMouseMove = useCallback((e: React.MouseEvent<HTMLImageElement>) => {
+    if (!imagePath || !isPickingRef.current) return
+    sampleAtEvent(e)
+  }, [imagePath, sampleAtEvent])
+
+  useEffect(() => {
+    const onMouseUp = () => { isPickingRef.current = false }
+    window.addEventListener('mouseup', onMouseUp)
+    return () => window.removeEventListener('mouseup', onMouseUp)
+  }, [])
 
   const handleClearPalette = useCallback(() => {
     clearPalette()
@@ -201,6 +228,13 @@ function App() {
               <span className="text-xl">◈</span>
             </button>
             <button
+              onClick={() => setViewMode('mixer')}
+              className={`p-2 transition-all ${viewMode === 'mixer' ? 'text-white' : 'text-gray-600 hover:text-gray-400'}`}
+              title="Spectral Mixer"
+            >
+              <span className="text-xl">⊕</span>
+            </button>
+            <button
               onClick={() => setViewMode('dither')}
               className={`p-2 transition-all ${viewMode === 'dither' ? 'text-white' : 'text-gray-600 hover:text-gray-400'}`}
               title="Dither View"
@@ -213,7 +247,7 @@ function App() {
         {/* Workspace */}
         <main className="flex-1 flex flex-col min-w-0">
           {viewMode === 'dither' ? (
-            <DitherView imageSrc={imagePath} />
+            <DitherView imageSrc={imagePath} onOpenImage={handleOpenImage} />
           ) : (
             <>
               {/* Pro Toolbar */}
@@ -245,7 +279,15 @@ function App() {
                   >
                     {pickerMode === 'dropper' ? '● Eyedropper' : 'Eyedropper'}
                   </button>
-                  <button className="text-gray-500 hover:text-gray-300 transition-colors">Mixer</button>
+                  <button
+                    onClick={() => setViewMode(viewMode === 'mixer' ? 'palette' : 'mixer')}
+                    className={`px-2 py-0.5 rounded transition-all ${viewMode === 'mixer'
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'text-gray-400 hover:text-white border border-transparent'
+                      }`}
+                  >
+                    Mixer
+                  </button>
                   <button className="text-gray-500 hover:text-gray-300 transition-colors">Spectrum</button>
                 </div>
 
@@ -276,7 +318,7 @@ function App() {
                       </button>
                     )}
                   </div>
-                  <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                  <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
                     {colors.map((color) => (
                       <ColorSwatch
                         key={color.id}
@@ -308,14 +350,10 @@ function App() {
                       <img
                         src={imagePath}
                         alt="Loaded"
-                        className={`max-w-full max-h-full object-contain shadow-2xl transition-all duration-300 ${pickerMode === 'dropper' ? 'cursor-crosshair' : 'cursor-default'}`}
-                        onClick={handleImageClick}
+                        className="max-w-full max-h-full object-contain shadow-2xl transition-all duration-300 cursor-crosshair"
+                        onMouseDown={handleImageMouseDown}
+                        onMouseMove={handleImageMouseMove}
                       />
-                      {pickerMode === 'dropper' && (
-                        <div className="absolute top-4 right-4 pointer-events-none bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded text-[10px] text-blue-400 font-bold uppercase tracking-widest animate-pulse">
-                          Dropper Active
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <div
@@ -348,53 +386,19 @@ function App() {
                       selectedColor={selectedColor ? selectedColor.rgb : null}
                       onAddColor={addColor}
                     />
+                  ) : viewMode === 'mixer' ? (
+                    <MixerPanel
+                      isOpen={true}
+                      paletteColors={colors}
+                      pickerColor={pickerColor}
+                      selectedColor={selectedColor ?? null}
+                      onAddColor={addColor}
+                    />
                   ) : (
-                    <div className="flex-1 p-5 overflow-y-auto">
-                      <div className="text-[10px] text-gray-500 font-bold tracking-widest uppercase mb-6">Selection</div>
-                      {selectedColor ? (
-                        <div className="space-y-8">
-                          <div
-                            className="w-full aspect-square rounded-xl border border-gray-800 shadow-inner overflow-hidden"
-                            style={{ backgroundColor: selectedColor.hex }}
-                          >
-                            <div className="w-full h-full bg-gradient-to-tr from-black/20 to-transparent" />
-                          </div>
-
-                          <div className="space-y-4">
-                            <div className="group">
-                              <span className="text-[9px] text-gray-600 block mb-1 font-mono uppercase">RGB</span>
-                              <span className="text-xs font-mono text-gray-300 bg-gray-900/50 p-1.5 rounded block border border-gray-800">
-                                {selectedColor.rgb.r}, {selectedColor.rgb.g}, {selectedColor.rgb.b}
-                              </span>
-                            </div>
-
-                            <div className="group">
-                              <span className="text-[9px] text-gray-600 block mb-1 font-mono uppercase">HSL</span>
-                              <span className="text-xs font-mono text-gray-300 bg-gray-900/50 p-1.5 rounded block border border-gray-800">
-                                {selectedColor.hsl.h}°, {selectedColor.hsl.s}%, {selectedColor.hsl.l}%
-                              </span>
-                            </div>
-
-                            <div className="group">
-                              <span className="text-[9px] text-gray-600 block mb-1 font-mono uppercase">Lab</span>
-                              <span className="text-xs font-mono text-gray-300 bg-gray-900/50 p-1.5 rounded block border border-gray-800">
-                                L: {selectedColor.lab.l.toFixed(1)} a: {selectedColor.lab.a.toFixed(1)} b: {selectedColor.lab.b.toFixed(1)}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center justify-between border-t border-gray-800 pt-4 mt-4">
-                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Luminance</span>
-                              <span className="text-xs font-mono text-gray-400">{(selectedColor.luminance * 100).toFixed(1)}%</span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
-                          <div className="text-[40px] mb-2">◌</div>
-                          <div className="text-[10px] text-gray-500 uppercase tracking-widest">No Selection</div>
-                        </div>
-                      )}
-                    </div>
+                    <SelectionPanel
+                      selectedColor={selectedColor}
+                      pickerColor={pickerColor}
+                    />
                   )}
                 </aside>
               </div>

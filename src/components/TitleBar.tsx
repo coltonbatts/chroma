@@ -6,14 +6,13 @@ interface TitleBarProps {
 }
 
 export function TitleBar({ title = 'Chroma' }: TitleBarProps) {
-  let appWindow
+  let appWindow: ReturnType<typeof getCurrentWindow> | null = null
   try {
     appWindow = getCurrentWindow()
   } catch (e) {
     console.warn('Failed to get current window:', e)
   }
   useEffect(() => {
-    console.log('TitleBar mounted, appWindow:', appWindow)
     if (!appWindow) return
 
     const checkMaximized = async () => {
@@ -26,7 +25,7 @@ export function TitleBar({ title = 'Chroma' }: TitleBarProps) {
         checkMaximized()
       })
       return () => {
-        unlisten.then(f => f && f())
+        unlisten.then((fn: (() => void) | undefined) => fn?.())
       }
     }
   }, [appWindow])

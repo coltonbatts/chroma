@@ -10,6 +10,7 @@ import { useDitherStore } from '../lib/store'
 
 interface DitherViewProps {
   imageSrc: string | null
+  onOpenImage: () => void
 }
 
 /** Downsample image data to target columns with aspect correction */
@@ -59,7 +60,7 @@ function downsample(
   return { pixels, width: targetCols, height: targetRows }
 }
 
-export function DitherView({ imageSrc }: DitherViewProps) {
+export function DitherView({ imageSrc, onOpenImage }: DitherViewProps) {
   const { ditherSettings, setDitherSettings } = useDitherStore()
   const settings = ditherSettings
   const [result, setResult] = useState<DitherResult | null>(null)
@@ -115,7 +116,15 @@ export function DitherView({ imageSrc }: DitherViewProps) {
       ? { ...settings, ...presetData.settings, paletteMode: 'custom' as const }
       : settings
 
-    const ditherResult = buildAsciiResult(colorIndices, width, height, palette, effectiveSettings, performance.now() - start)
+    const ditherResult = buildAsciiResult(
+      colorIndices,
+      width,
+      height,
+      palette,
+      effectiveSettings,
+      performance.now() - start,
+      pixels  // Pass original pixels for character mapping
+    )
     setResult(ditherResult)
   }, [imageData, settings])
 
@@ -140,6 +149,12 @@ export function DitherView({ imageSrc }: DitherViewProps) {
         {/* Toolbar */}
         <header className="h-10 border-b border-gray-800 flex items-center px-4 gap-4 text-[11px] bg-black/50 backdrop-blur-sm">
           <span className="text-[10px] text-gray-500 font-bold tracking-widest uppercase">Dither Preview</span>
+          <button
+            onClick={onOpenImage}
+            className="text-gray-400 hover:text-white transition-colors flex items-center gap-1.5"
+          >
+            <span className="text-lg leading-none">+</span> Open Image
+          </button>
           <div className="flex-1" />
           {result && (
             <span className="text-[9px] text-gray-600 font-mono">

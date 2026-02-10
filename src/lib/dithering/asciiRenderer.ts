@@ -1,10 +1,11 @@
 // ASCII renderer: converts dithered color indices → text and canvas rendering
 
 import { DitherResult, DitherSettings, RGB } from './types'
-import { CHARACTER_SETS, paletteIndexToChar } from './characterSets'
+import { CHARACTER_SETS, paletteIndexToChar, luminanceToChar } from './characterSets'
 
 /**
  * Build DitherResult from dithered color index array.
+ * Uses original pixel luminance for character selection to ensure variety.
  */
 export function buildAsciiResult(
   colorIndices: Uint8Array,
@@ -12,7 +13,8 @@ export function buildAsciiResult(
   rows: number,
   palette: RGB[],
   settings: DitherSettings,
-  processingTime: number
+  processingTime: number,
+  originalPixels?: Float32Array  // NEW: original downsampled pixels before dithering
 ): DitherResult {
   const charSet = CHARACTER_SETS[settings.characterSet]
   const lines: string[] = []
@@ -20,8 +22,23 @@ export function buildAsciiResult(
   for (let y = 0; y < rows; y++) {
     let line = ''
     for (let x = 0; x < cols; x++) {
-      const ci = colorIndices[y * cols + x]
-      line += paletteIndexToChar(ci, palette, charSet, settings.invert)
+      const idx = y * cols + x
+
+      // Use original pixel luminance if available, otherwise fall back to palette color
+      let char: string
+      if (originalPixels) {
+        const pixelIdx = idx * 3
+        const r = originalPixels[pixelIdx]
+        const g = originalPixels[pixelIdx + 1]
+        const b = originalPixels[pixelIdx + 2]
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b
+        char = luminanceToChar(lum, charSet, settings.invert)
+      } else {
+        const ci = colorIndices[idx]
+        char = paletteIndexToChar(ci, palette, charSet, settings.invert)
+      }
+
+      line += char
     }
     lines.push(line)
   }
@@ -61,9 +78,25 @@ export function renderToCanvas(
   ctx.fillStyle = `rgb(${bgColor.r},${bgColor.g},${bgColor.b})`
   ctx.fillRect(0, 0, canvasWidth, canvasHeight)
 
+  // Font family mapping
+  const fontFamilyMap: Record<string, string> = {
+    'monospace': 'monospace',
+    'geist-mono': '"Geist Mono", monospace',
+    'geist-pixel-circle': '"Geist Pixel Circle", monospace',
+    'geist-pixel-square': '"Geist Pixel Square", monospace',
+    'geist-pixel-grid': '"Geist Pixel Grid", monospace',
+    'geist-pixel-line': '"Geist Pixel Line", monospace',
+    'geist-pixel-triangle': '"Geist Pixel Triangle", monospace',
+  }
+
+  const fontFamily = fontFamilyMap[settings.fontFamily] || 'monospace'
+
   // Text rendering
-  ctx.font = `${fontSize}px monospace`
+  ctx.font = `${fontSize}px ${fontFamily}`
   ctx.textBaseline = 'top'
+
+  // Disable smoothing for crisp pixel rendering
+  ctx.imageSmoothingEnabled = false
 
   const charSet = CHARACTER_SETS[settings.characterSet]
   const usePerCharColor = palette.length > 2 && !fgColor

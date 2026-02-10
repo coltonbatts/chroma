@@ -259,3 +259,84 @@ export function getPigment(id: string): Pigment | undefined {
  * Re-export palette for convenience.
  */
 export { PALETTE, PALETTE_MAP, CHROMATIC_PIGMENTS, VALUE_ADJUSTERS } from './palette';
+
+// ─── User palette mixing (arbitrary hex colors) ─────────────────────────────
+
+/**
+ * Input for mixing arbitrary hex colors (user palette, picker, etc.).
+ */
+export interface HexMixInput {
+    hex: string;
+    /** Weight in the mix (will be normalized by spectral.js) */
+    weight: number;
+}
+
+/** Ensure hex has # prefix for spectral.js */
+function normalizeHex(hex: string): string {
+    const cleaned = hex.trim();
+    return cleaned.startsWith('#') ? cleaned : `#${cleaned}`;
+}
+
+/**
+ * Mix arbitrary hex colors using Kubelka-Munk pigment mixing.
+ * Works with any hex colors—user palette, picker, etc.
+ *
+ * @see https://github.com/rvanwijnen/spectral.js
+ */
+export async function mixColorsFromHex(inputs: HexMixInput[]): Promise<{ hex: string }> {
+    const spectral = await getSpectral();
+    const validInputs = inputs.filter((i) => i.weight > 0);
+    if (validInputs.length === 0) {
+        throw new Error('At least one input with positive weight required');
+    }
+
+    const mixArgs: [SpectralColor, number][] = validInputs.map((input) => {
+        const color = new spectral.Color(normalizeHex(input.hex));
+        return [color, input.weight];
+    });
+
+    const mixed = spectral.mix(...mixArgs);
+    return {
+        hex: mixed.toString({ format: 'hex' }),
+    };
+}
+
+/**
+ * Generate a palette of colors between two hex values using spectral mixing.
+ * Produces perceptually uniform transitions via Kubelka-Munk.
+ *
+ * @param hex1 Start color
+ * @param hex2 End color
+ * @param size Number of colors to generate (including endpoints)
+ */
+export async function paletteFromHex(
+    hex1: string,
+    hex2: string,
+    size: number
+): Promise<string[]> {
+    const spectral = await getSpectral();
+    const c1 = new spectral.Color(normalizeHex(hex1));
+    const c2 = new spectral.Color(normalizeHex(hex2));
+    const colors = spectral.palette(c1, c2, size);
+    return colors.map((c) => c.toString({ format: 'hex' }));
+}
+
+/**
+ * Get color at position t (0–1) in a gradient between multiple hex stops.
+ *
+ * @param t Position (0 = first stop, 1 = last stop)
+ * @param stops Array of { hex, position } where position is 0–1
+ */
+export async function gradientFromHex(
+    t: number,
+    stops: Array<{ hex: string; position: number }>
+): Promise<string> {
+    const spectral = await getSpectral();
+    const sorted = [...stops].sort((a, b) => a.position - b.position);
+    const mixArgs: [SpectralColor, number][] = sorted.map((s) => [
+        new spectral.Color(normalizeHex(s.hex)),
+        s.position,
+    ]);
+    const color = spectral.gradient(t, ...mixArgs);
+    return color.toString({ format: 'hex' });
+}

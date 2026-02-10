@@ -74,6 +74,9 @@ function processImage(imageData: ImageData, settings: DitherSettings) {
   // Downsample
   const { pixels, width, height } = downsample(imageData, settings.density, settings.aspectRatio)
 
+  // Make a copy of original pixels before dithering (dithering modifies in-place)
+  const originalPixels = new Float32Array(pixels)
+
   // Apply dithering algorithm
   const effectiveAlgorithm = presetData?.settings.algorithm ?? settings.algorithm
   const colorIndices = applyDithering(effectiveAlgorithm, pixels, width, height, palette)
@@ -83,8 +86,16 @@ function processImage(imageData: ImageData, settings: DitherSettings) {
     ? { ...settings, ...presetData.settings, paletteMode: 'custom' as const }
     : settings
 
-  // Build ASCII result
-  const result = buildAsciiResult(colorIndices, width, height, palette, effectiveSettings, performance.now() - start)
+  // Build ASCII result with original pixels for character mapping
+  const result = buildAsciiResult(
+    colorIndices,
+    width,
+    height,
+    palette,
+    effectiveSettings,
+    performance.now() - start,
+    originalPixels
+  )
 
   return result
 }

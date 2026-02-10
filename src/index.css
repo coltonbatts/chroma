@@ -1,9 +1,46 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", "Geist", "ui-sans-serif", "system-ui", sans-serif;
-  --font-mono: "Geist Mono", "ui-monospace", "SFMono-Regular", monospace;
+  --font-sans: "Geist Pixel Square", "Geist Pixel Grid", "Geist Pixel Circle", ui-monospace, monospace;
+  --font-mono: "Geist Pixel Square", "Geist Pixel Grid", "Geist Pixel Circle", ui-monospace, monospace;
 }
+
+/* Geist Pixel Font Variants */
+@font-face {
+  font-family: 'Geist Pixel Circle';
+  src: url('../node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Circle.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Geist Pixel Square';
+  src: url('../node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Square.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Geist Pixel Grid';
+  src: url('../node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Grid.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Geist Pixel Line';
+  src: url('../node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Line.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Geist Pixel Triangle';
+  src: url('../node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Triangle.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
 
 :root {
   color-scheme: dark;
@@ -15,8 +52,8 @@ body {
   min-height: 100vh;
   background-color: #000000;
   color: #e0e0ee;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
   overflow: hidden;
   font-family: var(--font-sans);
 }

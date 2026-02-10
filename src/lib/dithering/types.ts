@@ -6,6 +6,15 @@ export type CharacterSetName = 'dense-to-sparse' | 'box-drawing' | 'braille'
 
 export type PaletteMode = '1-bit' | '2-bit' | '4-bit' | 'custom'
 
+export type FontFamily =
+  | 'monospace'
+  | 'geist-mono'
+  | 'geist-pixel-circle'
+  | 'geist-pixel-square'
+  | 'geist-pixel-grid'
+  | 'geist-pixel-line'
+  | 'geist-pixel-triangle'
+
 export type PresetName =
   | 'terminal-green'
   | 'amber-crt'
@@ -29,6 +38,7 @@ export interface DitherSettings {
   fontSize: number       // 4-16px for canvas rendering
   invert: boolean
   customPalette: RGB[]
+  fontFamily: FontFamily
 }
 
 export interface DitherResult {
@@ -75,7 +85,8 @@ export const DEFAULT_DITHER_SETTINGS: DitherSettings = {
   preset: null,
   density: 80,
   aspectRatio: 0.5,
-  fontSize: 8,
+  fontSize: 12,
   invert: false,
   customPalette: [],
+  fontFamily: 'geist-pixel-circle',
 }

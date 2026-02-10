@@ -24,6 +24,17 @@ const PALETTE_MODES: { value: PaletteMode; label: string }[] = [
   { value: 'custom', label: 'Custom' },
 ]
 
+const FONT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'geist-pixel-circle', label: 'Geist Pixel Circle' },
+  { value: 'geist-pixel-square', label: 'Geist Pixel Square' },
+  { value: 'geist-pixel-grid', label: 'Geist Pixel Grid' },
+  { value: 'geist-pixel-line', label: 'Geist Pixel Line' },
+  { value: 'geist-pixel-triangle', label: 'Geist Pixel Triangle' },
+  { value: 'geist-mono', label: 'Geist Mono' },
+  { value: 'monospace', label: 'System Mono' },
+]
+
+
 const PRESET_LIST = Object.values(PRESETS)
 
 function SelectGroup<T extends string>({
@@ -133,11 +144,10 @@ export function DitherControlPanel({ settings, onSettingsChange, result, preview
           <div className="grid grid-cols-2 gap-1">
             <button
               onClick={() => onSettingsChange({ preset: null })}
-              className={`px-2 py-1.5 text-[10px] rounded border transition-all ${
-                !settings.preset
-                  ? 'border-gray-500 text-white bg-gray-800'
-                  : 'border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-700'
-              }`}
+              className={`px-2 py-1.5 text-[10px] rounded border transition-all ${!settings.preset
+                ? 'border-gray-500 text-white bg-gray-800'
+                : 'border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-700'
+                }`}
             >
               Custom
             </button>
@@ -149,11 +159,10 @@ export function DitherControlPanel({ settings, onSettingsChange, result, preview
                   ...(p.settings as Partial<DitherSettings>),
                   customPalette: p.palette,
                 })}
-                className={`px-2 py-1.5 text-[10px] rounded border transition-all ${
-                  settings.preset === p.name
-                    ? 'border-gray-500 text-white bg-gray-800'
-                    : 'border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-700'
-                }`}
+                className={`px-2 py-1.5 text-[10px] rounded border transition-all ${settings.preset === p.name
+                  ? 'border-gray-500 text-white bg-gray-800'
+                  : 'border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-700'
+                  }`}
               >
                 {p.label}
               </button>
@@ -185,6 +194,15 @@ export function DitherControlPanel({ settings, onSettingsChange, result, preview
           onChange={(v) => onSettingsChange({ paletteMode: v, preset: null })}
         />
 
+        {/* Font */}
+        <SelectGroup
+          label="Font"
+          value={settings.fontFamily}
+          options={FONT_OPTIONS}
+          onChange={(v) => onSettingsChange({ fontFamily: v as any, preset: null })}
+        />
+
+
         {/* Density */}
         <SliderGroup
           label="Density"
@@ -212,7 +230,7 @@ export function DitherControlPanel({ settings, onSettingsChange, result, preview
           label="Font Size"
           value={settings.fontSize}
           min={4}
-          max={16}
+          max={48}
           step={1}
           onChange={(v) => onSettingsChange({ fontSize: v })}
           displayValue={`${settings.fontSize}px`}
@@ -223,14 +241,12 @@ export function DitherControlPanel({ settings, onSettingsChange, result, preview
           <label className="text-[9px] text-gray-500 font-bold tracking-widest uppercase">Invert</label>
           <button
             onClick={() => onSettingsChange({ invert: !settings.invert })}
-            className={`w-8 h-4 rounded-full transition-all relative ${
-              settings.invert ? 'bg-gray-500' : 'bg-gray-800'
-            }`}
+            className={`w-8 h-4 rounded-full transition-all relative ${settings.invert ? 'bg-gray-500' : 'bg-gray-800'
+              }`}
           >
             <div
-              className={`w-3 h-3 rounded-full bg-white absolute top-0.5 transition-all ${
-                settings.invert ? 'left-4' : 'left-0.5'
-              }`}
+              className={`w-3 h-3 rounded-full bg-white absolute top-0.5 transition-all ${settings.invert ? 'left-4' : 'left-0.5'
+                }`}
             />
           </button>
         </div>
